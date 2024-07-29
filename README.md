@@ -3,7 +3,7 @@
 Manual clone of [githead.yazi](https://github.com/llanosrocas/githead.yazi) for supporting [yatline.yazi](https://github.com/imsi32/yatline.yazi)
 
 > [!IMPORTANT]
-> This repository will not add new features other than coming from orginal repository.
+> This repository will not add new features other than coming from orginal repository.  
 > The latest commit in there is a97cfd6a13ebb79611d27f36c829a4ec11439d8d.
 
 All supported features are listed [here](#features)
@@ -39,7 +39,7 @@ Optionally, configuration:
 require("githead"):setup({
   show_branch = true,
   branch_prefix = "on",
-  prefix_color = "white"
+  prefix_color = "white",
   branch_color = "blue",
   branch_symbol = "",
   branch_borders = "()",
@@ -74,7 +74,7 @@ You can also use a [theme](https://github.com/imsi32/yatline-themes):
 
 ```lua
 local your_theme = {
-  prefix_color = "white"
+  prefix_color = "white",
   branch_color = "blue",
   commit_color = "bright magenta",
   stashes_color = "bright magenta",
