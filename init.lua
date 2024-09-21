@@ -9,6 +9,10 @@ local function setup(_, options)
 
     commit_symbol = options.commit_symbol or "@",
 
+    show_behind_ahead = options.behind_ahead == nil and true or options.behind_ahead,
+    behind_symbol = options.behind_symbol or "⇣",
+    ahead_symbol = options.ahead_symbol or "⇡",
+
     show_stashes = options.show_stashes == nil and true or options.show_stashes,
     stashes_symbol = options.stashes_symbol or "$",
 
@@ -34,11 +38,13 @@ local function setup(_, options)
     prefix_color = options.prefix_color or "white",
     branch_color = options.branch_color or "blue",
     commit_color = options.commit_color or "bright magenta",
+    behind_color = options.behind_color or "bright magenta",
+    ahead_color = options.ahead_color or "bright magenta",
     stashes_color = options.stashes_color or "bright magenta",
     state_color = options.state_color or "red",
     staged_color = options.staged_color or "bright yellow",
     unstaged_color = options.unstaged_color or "bright yellow",
-    untracked_color = options.untracked_color or "blue",
+    untracked_color = options.untracked_color or "bright blue",
   }
 
 
@@ -80,6 +86,23 @@ local function setup(_, options)
       local branch_prefix = config.branch_prefix == "" and " " or " " .. config.branch_prefix .. " "
 
       return { "branch", branch_prefix, branch_string }
+    end
+  end
+
+  local function get_behind_ahead(status)
+    local diverged_ahead, diverged_behind = status:match("have (%d+) and (%d+) different")
+    if diverged_ahead and diverged_behind then
+      return { " " .. config.behind_symbol .. diverged_behind, config.ahead_symbol .. diverged_ahead }
+    else
+      local behind = status:match("behind %S+ by (%d+) commit")
+      local ahead = status:match("ahead of %S+ by (%d+) commit")
+      if ahead then
+        return { "", " " .. config.ahead_symbol .. ahead }
+      elseif behind then
+        return { " " .. config.behind_symbol .. behind , "" }
+      else
+        return ""
+      end
     end
   end
 
@@ -185,13 +208,16 @@ local function setup(_, options)
     local branch_array = get_branch(status)
     local prefix = ui.Span(config.show_branch and branch_array[2] or ""):fg(theme.prefix_color)
     local branch = ui.Span(config.show_branch and branch_array[3] or ""):fg(branch_array[1] == "commit" and theme.commit_color or theme.branch_color)
+    local behind_ahead = get_behind_ahead(status)
+    local behind = ui.Span(config.show_behind_ahead and behind_ahead[1] or ""):fg(theme.behind_color)
+    local ahead = ui.Span(config.show_behind_ahead and behind_ahead[2] or ""):fg(theme.ahead_color)
     local stashes = ui.Span(config.show_stashes and get_stashes(status) or ""):fg(theme.stashes_color)
     local state = ui.Span(config.show_state and get_state(status) or ""):fg(theme.state_color)
     local staged = ui.Span(config.show_staged and get_staged(status) or ""):fg(theme.staged_color)
     local unstaged = ui.Span(config.show_unstaged and get_unstaged(status) or ""):fg(theme.unstaged_color)
     local untracked = ui.Span(config.show_untracked and get_untracked(status) or ""):fg(theme.untracked_color)
 
-    return ui.Line { prefix, branch, stashes, state, staged, unstaged, untracked }
+    return ui.Line { prefix, branch, behind, ahead, stashes, state, staged, unstaged, untracked }
   end
 
   Header:children_add(Header.githead, 2000, Header.LEFT)
@@ -211,29 +237,38 @@ local function setup(_, options)
 	end
       end
 
+      local behind_ahead = config.show_behind_ahead and get_behind_ahead(status) or ""
+      if behind_ahead ~= nil and behind_ahead ~= "" then
+        if behind_ahead[1] ~= nil and behind_ahead[1] ~= "" then
+          table.insert(githead, { behind_ahead[1], theme.behind_color })
+        elseif behind_ahead[2] ~= nil and behind_ahead[2] ~= "" then
+          table.insert(githead, { behind_ahead[2], theme.ahead_color })
+        end
+      end
+
       local stashes = config.show_stashes and get_stashes(status) or ""
       if stashes ~= nil and stashes ~= "" then
-        table.insert(githead, {stashes, theme.stashes_color })
+        table.insert(githead, { stashes, theme.stashes_color })
       end
 
       local state = config.show_state and get_state(status) or ""
       if state ~= nil and state ~= "" then
-        table.insert(githead, {state, theme.state_color })
+        table.insert(githead, { state, theme.state_color })
       end
 
       local staged = config.show_staged and get_staged(status) or ""
       if staged ~= nil and staged ~= "" then
-        table.insert(githead, {staged, theme.staged_color })
+        table.insert(githead, { staged, theme.staged_color })
       end
 
       local unstaged = config.show_unstaged and get_unstaged(status) or ""
       if unstaged ~= nil and unstaged ~= "" then
-        table.insert(githead, {unstaged, theme.unstaged_color })
+        table.insert(githead, { unstaged, theme.unstaged_color })
       end
 
       local untracked = config.show_untracked and get_untracked(status) or ""
       if untracked ~= nil and untracked ~= "" then
-        table.insert(githead, {untracked, theme.untracked_color })
+        table.insert(githead, { untracked, theme.untracked_color })
       end
 
       if #githead == 0 then

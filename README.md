@@ -4,7 +4,7 @@ Manual clone of [githead.yazi](https://github.com/llanosrocas/githead.yazi) for 
 
 > [!IMPORTANT]
 > This repository will not add new features other than coming from orginal repository.  
-> The latest commit in there is a97cfd6a13ebb79611d27f36c829a4ec11439d8d.
+> The latest commit in there is bf150f3ee982e565940c63dc98603d275120ca96.
 
 All supported features are listed [here](#features)
 
@@ -46,6 +46,12 @@ require("githead"):setup({
 
   commit_color = "bright magenta",
   commit_symbol = "@",
+
+  show_behind_ahead = true,
+  behind_color = "bright magenta",
+  behind_symbol = "⇣",
+  ahead_color = "bright magenta",
+  ahead_symbol = "⇡",
 
   show_stashes = true,
   stashes_color = "bright magenta",
@@ -106,6 +112,7 @@ If you are using yatline.yazi, you can use this component:
 ## Features
 
 - [x] Current branch (or current commit if branch is not presented)
+- [x] Behind/Ahead of the remote
 - [x] Stashes
 - [x] States
   - [x] merge
