@@ -17,6 +17,9 @@ return {
 			branch_symbol = options.branch_symbol or "",
 			branch_borders = options.branch_borders or "()",
 
+			show_remote = options.show_remote == nil and true or options.show_remote,
+			remote_prefix = options.remote_prefix or ":",
+
 			commit_symbol = options.commit_symbol or "@",
 
 			show_behind_ahead = options.behind_ahead == nil and true or options.behind_ahead,
@@ -47,6 +50,7 @@ return {
 		local theme = {
 			prefix_color = options.prefix_color or "white",
 			branch_color = options.branch_color or "blue",
+			remote_color = options.remote_color or "bright magenta",
 			commit_color = options.commit_color or "bright magenta",
 			behind_color = options.behind_color or "bright magenta",
 			ahead_color = options.ahead_color or "bright magenta",
@@ -88,6 +92,19 @@ return {
 				return { "branch", branch_prefix, branch_string }
 			end
 		end
+
+		local function get_remote(status)
+			local branch = status:match("On branch (%S+)")
+			local remote_branch = status:match("'[^/]+/([^']+)'")
+
+			if (branch and remote_branch) and (branch ~= remote_branch) then
+				return config.remote_prefix .. remote_branch
+			else
+				return ""
+			end
+		end
+
+		get_remote("")
 
 		local function get_behind_ahead(status)
 			local diverged_ahead, diverged_behind = status:match("have (%d+) and (%d+) different")
@@ -212,6 +229,7 @@ return {
 			local prefix = ui.Span(config.show_branch and branch_array[2] or ""):fg(theme.prefix_color)
 			local branch = ui.Span(config.show_branch and branch_array[3] or "")
 				:fg(branch_array[1] == "commit" and theme.commit_color or theme.branch_color)
+			local remote = ui.Span(config.show_remote and get_remote(status) or ""):fg(theme.remote_color)
 			local behind_ahead = get_behind_ahead(status)
 			local behind = ui.Span(config.show_behind_ahead and behind_ahead[1] or ""):fg(theme.behind_color)
 			local ahead = ui.Span(config.show_behind_ahead and behind_ahead[2] or ""):fg(theme.ahead_color)
@@ -221,7 +239,7 @@ return {
 			local unstaged = ui.Span(config.show_unstaged and get_unstaged(status) or ""):fg(theme.unstaged_color)
 			local untracked = ui.Span(config.show_untracked and get_untracked(status) or ""):fg(theme.untracked_color)
 
-			return ui.Line({ prefix, branch, behind, ahead, stashes, state, staged, unstaged, untracked })
+			return ui.Line({ prefix, branch, remote, behind, ahead, stashes, state, staged, unstaged, untracked })
 		end
 
 		Header:children_add(Header.githead, 2000, Header.LEFT)
@@ -260,6 +278,11 @@ return {
 					else
 						table.insert(githead, { branch[3], theme.branch_color })
 					end
+				end
+
+				local remote = config.show_remote and get_remote(status) or ""
+				if remote ~= nil and remote ~= "" then
+					table.insert(githead, { remote, theme.remote_color })
 				end
 
 				local behind_ahead = config.show_behind_ahead and get_behind_ahead(status) or ""

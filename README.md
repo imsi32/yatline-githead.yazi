@@ -4,8 +4,8 @@ Manual clone of [githead.yazi](https://github.com/llanosrocas/githead.yazi) for 
 
 > [!IMPORTANT]
 > This repository will not add new features other than coming from original repository.  
-> The latest commit in there is 8df5b681b878d63bbdebf8f616ef972ac9cf78aa.
-> Which can be found in [here](https://github.com/llanosrocas/githead.yazi/commit/8df5b681b878d63bbdebf8f616ef972ac9cf78aa)
+> The latest commit in there is 1db1f18e32446abe332cd33fbb706e7f95a6e002.
+> Which can be found in [here](https://github.com/llanosrocas/githead.yazi/commit/1db1f18e32446abe332cd33fbb706e7f95a6e002)
 
 All supported features are listed [here](#features)
 
@@ -45,6 +45,10 @@ require("githead"):setup({
   branch_symbol = "",
   branch_borders = "()",
 
+ show_remote = true,
+ remote_color = "bright magenta",
+ remote_prefix = ":",
+
   commit_color = "bright magenta",
   commit_symbol = "@",
 
@@ -83,6 +87,7 @@ You can also use a [theme](https://github.com/imsi32/yatline-themes):
 local your_theme = {
   prefix_color = "white",
   branch_color = "blue",
+  remote_color = "bright magenta",
   commit_color = "bright magenta",
   stashes_color = "bright magenta",
   state_color = "red",
