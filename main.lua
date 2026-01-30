@@ -113,14 +113,14 @@ return {
 		end
 
 		local function get_state(status)
-			local result = status:match("Unmerged paths:%s*(.-)%s*\n\n")
-			if result then
-				local filtered_result = result:gsub("^[%s]*%b()[%s]*", ""):gsub("^[%s]*%b()[%s]*", "")
+			local unmerged = status:match("Unmerged paths:%s*(.-)%s*\n\n")
+			if unmerged then
+				local filtered_unmerged = unmerged:gsub("^[%s]*%b()[%s]*", ""):gsub("^[%s]*%b()[%s]*", "")
 
-				local unmerged = 0
-				for line in filtered_result:gmatch("[^\r\n]+") do
+				local unmerged_count = 0
+				for line in filtered_unmerged:gmatch("[^\r\n]+") do
 					if line:match("%S") then
-						unmerged = unmerged + 1
+						unmerged_count = unmerged_count + 1
 					end
 				end
 
@@ -136,14 +136,16 @@ return {
 
 						if status:find("done") then
 							local done = status:match("%((%d+) com.- done%)") or ""
-							state_name = state_name .. done .. "/" .. unmerged .. " "
+							state_name = state_name .. done .. "/" .. unmerged_count .. " "
 						end
-					else
-						state_name = ""
+					elseif status:find("git revert") then
+						state_name = "revert "
 					end
 				end
 
-				return " " .. state_name .. config.state_symbol .. unmerged
+				return " " .. state_name .. config.state_symbol .. unmerged_count
+			elseif status:find("git bisect") then
+				return " bisect"
 			else
 				return ""
 			end

@@ -4,8 +4,8 @@ Manual clone of [githead.yazi](https://github.com/llanosrocas/githead.yazi) for 
 
 > [!IMPORTANT]
 > This repository will not add new features other than coming from original repository.  
-> The latest commit in there is c90882faf941ac2d4407e931f1e5f2ca2c6b2264.
-> Which can be found in [here](https://github.com/llanosrocas/githead.yazi/blob/c90882faf941ac2d4407e931f1e5f2ca2c6b2264/main.lua)
+> The latest commit in there is 8df5b681b878d63bbdebf8f616ef972ac9cf78aa.
+> Which can be found in [here](https://github.com/llanosrocas/githead.yazi/commit/8df5b681b878d63bbdebf8f616ef972ac9cf78aa)
 
 All supported features are listed [here](#features)
 
@@ -136,6 +136,8 @@ If you are using yatline.yazi, you can use this component:
   - [x] merge
   - [x] cherry
   - [x] rebase (+ done counter)
+  - [x] revert
+  - [x] bisect (only if other states are not present)
 - [x] Staged
 - [x] Unstaged
 - [x] Untracked
@@ -145,7 +147,7 @@ If you are using yatline.yazi, you can use this component:
 The goal is to use minimum amount of shell commands.
 
 ```shell
-git status --ignore-submodules=dirty --branch --show-stash
+git status --ignore-submodules=dirty --branch --show-stash --ahead-behind
 ```
 
 This command provides information about branches, stashes, staged files, unstaged files, untracked files, and other statistics.
