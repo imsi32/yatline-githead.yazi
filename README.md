@@ -15,7 +15,7 @@ All supported features are listed [here](#features)
 - Font with symbol support. For example [Nerd Fonts](https://www.nerdfonts.com/).
 - [yatline.yazi](https://github.com/imsi32/yatline.yazi) (Mandatory)
 
-> !IMPORTANT
+> [!IMPORTANT]
 > Recommended to use [githead.yazi](https://github.com/llanosrocas/githead.yazi), if you are not using yatline.yazi
 
 ## Installation
