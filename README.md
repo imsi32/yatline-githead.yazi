@@ -4,8 +4,8 @@ Manual clone of [githead.yazi](https://github.com/llanosrocas/githead.yazi) for 
 
 > [!IMPORTANT]
 > This repository will not add new features other than coming from original repository.  
-> The latest commit in there is 1db1f18e32446abe332cd33fbb706e7f95a6e002.
-> Which can be found in [here](https://github.com/llanosrocas/githead.yazi/commit/1db1f18e32446abe332cd33fbb706e7f95a6e002)
+> The latest commit in there is 74c4ea4a16f63ef7596e8b165b5c5e580a5267bc.
+> Which can be found in [here](https://github.com/llanosrocas/githead.yazi/commit/74c4ea4a16f63ef7596e8b165b5c5e580a5267bc)
 
 All supported features are listed [here](#features)
 
@@ -38,6 +38,17 @@ Optionally, configuration:
 
 ```lua
 require("githead"):setup({
+  order = {
+    "branch",
+    "remote",
+    "behind_ahead",
+    "stashes",
+    "state",
+    "staged",
+    "unstaged",
+    "untracked",
+  }
+
   show_branch = true,
   branch_prefix = "on",
   prefix_color = "white",
@@ -45,9 +56,9 @@ require("githead"):setup({
   branch_symbol = "",
   branch_borders = "()",
 
- show_remote = true,
- remote_color = "bright magenta",
- remote_prefix = ":",
+  show_remote = true,
+  remote_color = "bright magenta",
+  remote_prefix = ":",
 
   commit_color = "bright magenta",
   commit_symbol = "@",
@@ -116,25 +127,27 @@ If you are using yatline.yazi, you can use this component:
 ```
 
 ``` text
-/current/dir on ( main) ⇣2⇡3 $1 rebase 1/2 ~2 +4 !1 ?5
-|            |   |     | | |  |  |          |  |  |  |
-|            |   |     | | |  |  |          |  |  |  └─── untracked_symbol
-|            |   |     | | |  |  |          |  |  └────── unstaged_symbol
-|            |   |     | | |  |  |          |  └───────── staged_symbol
-|            |   |     | | |  |  |          └──────────── state_symbol
-|            |   |     | | |  |  └─────────────────────── state_prefix
-|            |   |     | | |  └────────────────────────── stashes_symbol
-|            |   |     | | └───────────────────────────── ahead_symbol
-|            |   |     | └─────────────────────────────── behind_symbol
-|            |   |     └───────────────────────────────── branch_borders
-|            |   └─────────────────────────────────────── branch_symbol
-|            └─────────────────────────────────────────── branch_prefix
+/cwd on ( feature):main ⇣2⇡3 $1 rebase 1/2 ~2 +4 !1 ?5
+|    |   |        ││     | |  |  |          |  |  |  |
+|    |   |        ││     | |  |  |          |  |  |  └─── untracked_symbol
+|    |   |        ││     | |  |  |          |  |  └────── unstaged_symbol
+|    |   |        ││     | |  |  |          |  └───────── staged_symbol
+|    |   |        ││     | |  |  |          └──────────── state_symbol
+|    |   |        ││     | |  |  └─────────────────────── state_prefix
+|    |   |        ││     | |  └────────────────────────── stashes_symbol
+|    |   |        ││     | └───────────────────────────── ahead_symbol
+|    |   |        ││     └─────────────────────────────── behind_symbol
+|    |   |        |└───────────────────────────────────── remote_prefix
+|    |   |        └────────────────────────────────────── branch_borders
+|    |   └─────────────────────────────────────────────── branch_symbol
+|    └─────────────────────────────────────────────────── branch_prefix
 └──────────────────────────────────────────────────────── cwd
 ```
 
 ## Features
 
 - [x] Current branch (or current commit if branch is not presented)
+- [x] Remote branch (only if it's different from local branch)
 - [x] Behind/Ahead of the remote
 - [x] Stashes
 - [x] States

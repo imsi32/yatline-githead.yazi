@@ -12,6 +12,17 @@ return {
 		options = options or {}
 
 		local config = {
+			order = options.order or {
+				"branch",
+				"remote",
+				"behind_ahead",
+				"stashes",
+				"state",
+				"staged",
+				"unstaged",
+				"untracked",
+			},
+
 			show_branch = options.show_branch == nil and true or options.show_branch,
 			branch_prefix = options.branch_prefix or "on",
 			branch_symbol = options.branch_symbol or "",
@@ -226,23 +237,34 @@ return {
 			local status = this.output
 
 			local branch_array = get_branch(status)
-			local prefix = ui.Span(config.show_branch and branch_array[2] or ""):fg(theme.prefix_color)
-			local branch = ui.Span(config.show_branch and branch_array[3] or "")
-				:fg(branch_array[1] == "commit" and theme.commit_color or theme.branch_color)
-			local remote = ui.Span(config.show_remote and get_remote(status) or ""):fg(theme.remote_color)
-			local behind_ahead = get_behind_ahead(status)
-			local behind = ui.Span(config.show_behind_ahead and behind_ahead[1] or ""):fg(theme.behind_color)
-			local ahead = ui.Span(config.show_behind_ahead and behind_ahead[2] or ""):fg(theme.ahead_color)
-			local stashes = ui.Span(config.show_stashes and get_stashes(status) or ""):fg(theme.stashes_color)
-			local state = ui.Span(config.show_state and get_state(status) or ""):fg(theme.state_color)
-			local staged = ui.Span(config.show_staged and get_staged(status) or ""):fg(theme.staged_color)
-			local unstaged = ui.Span(config.show_unstaged and get_unstaged(status) or ""):fg(theme.unstaged_color)
-			local untracked = ui.Span(config.show_untracked and get_untracked(status) or ""):fg(theme.untracked_color)
+			local behind_ahead_array = get_behind_ahead(status)
 
-			return ui.Line({ prefix, branch, remote, behind, ahead, stashes, state, staged, unstaged, untracked })
+			local values = {
+				prefix = ui.Span(config.show_branch and branch_array[2] or ""):fg(theme.prefix_color),
+				branch = ui.Span(config.show_branch and branch_array[3] or "")
+					:fg(branch_array[1] == "commit" and theme.commit_color or theme.branch_color),
+				remote = ui.Span(config.show_remote and get_remote(status) or ""):fg(theme.remote_color),
+				behind_ahead = ui.Line(
+					ui.Span(config.show_behind_ahead and behind_ahead_array[1] or ""):fg(theme.behind_color),
+					ui.Span(config.show_behind_ahead and behind_ahead_array[2] or ""):fg(theme.ahead_color)
+				),
+				stashes = ui.Span(config.show_stashes and get_stashes(status) or ""):fg(theme.stashes_color),
+				state = ui.Span(config.show_state and get_state(status) or ""):fg(theme.state_color),
+				staged = ui.Span(config.show_staged and get_staged(status) or ""):fg(theme.staged_color),
+				unstaged = ui.Span(config.show_unstaged and get_unstaged(status) or ""):fg(theme.unstaged_color),
+				untracked = ui.Span(config.show_untracked and get_untracked(status) or ""):fg(theme.untracked_color),
+			}
+
+			local githead = {}
+			for _, key in ipairs(config.order) do
+				local is_shown = config["show_" .. key]
+				if values[key] and is_shown then
+					table.insert(githead, values[key])
+				end
+			end
+
+			return ui.Line(githead)
 		end
-
-		Header:children_add(Header.githead, 2000, Header.LEFT)
 
 		local callback = function()
 			local cwd = cx.active.current.cwd
@@ -264,68 +286,71 @@ return {
 		if Yatline ~= nil then
 			function Yatline.coloreds.get:githead()
 				local status = this.output
-				local githead = {}
 
 				if not status then
-					return githead
+					return ""
 				end
 
-				local branch = config.show_branch and get_branch(status) or ""
-				if branch ~= nil and branch ~= "" then
-					table.insert(githead, { branch[2], theme.prefix_color })
-					if branch[1] == "commit" then
-						table.insert(githead, { branch[3], theme.commit_color })
-					else
-						table.insert(githead, { branch[3], theme.branch_color })
+				local branch_array = config.show_branch and get_branch(status) or ""
+				local remote_str = config.show_remote and get_remote(status) or ""
+				local behind_ahead_array = config.show_behind_ahead and get_behind_ahead(status) or ""
+				local stashes_str = config.show_stashes and get_stashes(status) or ""
+				local state_str = config.show_state and get_state(status) or ""
+				local staged_str = config.show_staged and get_staged(status) or ""
+				local unstaged_str = config.show_unstaged and get_unstaged(status) or ""
+				local untracked_str = config.show_untracked and get_untracked(status) or ""
+
+				local values = {
+					prefix = branch_array ~= "" and { branch_array[2], theme.prefix_color } or nil,
+					branch = branch_array ~= "" and {
+						branch_array[3],
+						branch_array[1] == "commit" and theme.commit_color or theme.branch_color,
+					} or nil,
+					remote = remote_str ~= "" and { remote_str, theme.remote_color } or nil,
+					behind_ahead = (function()
+						if behind_ahead_array ~= "" then
+							local ba_array = {}
+							if behind_ahead_array[1] ~= "" then
+								table.insert(ba_array, { behind_ahead_array[1], theme.behind_color })
+							end
+							if behind_ahead_array[2] ~= "" then
+								table.insert(ba_array, { behind_ahead_array[2], theme.ahead_color })
+							end
+							if #ba_array ~= 0 then
+								return ba_array
+							end
+						end
+						return nil
+					end)(),
+					stashes = stashes_str ~= "" and { stashes_str, theme.stashes_color } or nil,
+					state = state_str ~= "" and { state_str, theme.state_color } or nil,
+					staged = staged_str ~= "" and { staged_str, theme.staged_color } or nil,
+					unstaged = unstaged_str ~= "" and { unstaged_str, theme.unstaged_color } or nil,
+					untracked = untracked_str ~= "" and { untracked_str, theme.untracked_color } or nil,
+				}
+
+				local githead = {}
+				for _, key in ipairs(config.order) do
+					local is_shown = config["show_" .. key]
+					if values[key] ~= nil and is_shown then
+						if type(values[key][1]) == "table" then
+							for _, value in ipairs(values[key]) do
+								table.insert(githead, value)
+							end
+						else
+							table.insert(githead, values[key])
+						end
 					end
-				end
-
-				local remote = config.show_remote and get_remote(status) or ""
-				if remote ~= nil and remote ~= "" then
-					table.insert(githead, { remote, theme.remote_color })
-				end
-
-				local behind_ahead = config.show_behind_ahead and get_behind_ahead(status) or ""
-				if behind_ahead ~= nil and behind_ahead ~= "" then
-					if behind_ahead[1] ~= nil and behind_ahead[1] ~= "" then
-						table.insert(githead, { behind_ahead[1], theme.behind_color })
-					elseif behind_ahead[2] ~= nil and behind_ahead[2] ~= "" then
-						table.insert(githead, { behind_ahead[2], theme.ahead_color })
-					end
-				end
-
-				local stashes = config.show_stashes and get_stashes(status) or ""
-				if stashes ~= nil and stashes ~= "" then
-					table.insert(githead, { stashes, theme.stashes_color })
-				end
-
-				local state = config.show_state and get_state(status) or ""
-				if state ~= nil and state ~= "" then
-					table.insert(githead, { state, theme.state_color })
-				end
-
-				local staged = config.show_staged and get_staged(status) or ""
-				if staged ~= nil and staged ~= "" then
-					table.insert(githead, { staged, theme.staged_color })
-				end
-
-				local unstaged = config.show_unstaged and get_unstaged(status) or ""
-				if unstaged ~= nil and unstaged ~= "" then
-					table.insert(githead, { unstaged, theme.unstaged_color })
-				end
-
-				local untracked = config.show_untracked and get_untracked(status) or ""
-				if untracked ~= nil and untracked ~= "" then
-					table.insert(githead, { untracked, theme.untracked_color })
 				end
 
 				if #githead == 0 then
 					return ""
 				else
-					table.insert(githead, { " ", theme.prefix_color })
 					return githead
 				end
 			end
+		else
+			Header:children_add(Header.githead, 2000, Header.LEFT)
 		end
 	end,
 
