@@ -4,8 +4,8 @@ Manual clone of [githead.yazi](https://github.com/llanosrocas/githead.yazi) for 
 
 > [!IMPORTANT]
 > This repository will not add new features other than coming from original repository.  
-> The latest commit in there is 74c4ea4a16f63ef7596e8b165b5c5e580a5267bc.
-> Which can be found in [here](https://github.com/llanosrocas/githead.yazi/commit/74c4ea4a16f63ef7596e8b165b5c5e580a5267bc)
+> The latest commit in there is 317d09f728928943f0af72ff6ce31ea335351202.
+> Which can be found in [here](https://github.com/llanosrocas/githead.yazi/commit/317d09f728928943f0af72ff6ce31ea335351202)
 
 All supported features are listed [here](#features)
 
@@ -13,61 +13,71 @@ All supported features are listed [here](#features)
 
 - yazi version >= 25.5.28.
 - Font with symbol support. For example [Nerd Fonts](https://www.nerdfonts.com/).
-- yatline.yazi (Optional)
+- [yatline.yazi](https://github.com/imsi32/yatline.yazi) (Mandatory)
+
+> !IMPORTANT
+> Recommended to use [githead.yazi](https://github.com/llanosrocas/githead.yazi), if you are not using yatline.yazi
 
 ## Installation
 
 ```sh
-ya pack -a imsi32/yatline-githead
+ya pkg add imsi32/yatline-githead
 ```
 
 ## Usage
 
-Add this to your `~/.config/yazi/init.lua`:
-
-> [!IMPORTANT]
-> If you are using yatline.yazi, put this after its initialization.
+Add this to your `~/.config/yazi/init.lua`, after yatline.yazi configuration:
 
 ```lua
 require("yatline-githead"):setup()
 ```
 
-Read more about symbols [here](https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#what-do-different-symbols-in-git-status-mean).
-
-Optionally, configuration:
+### Default Configuration
 
 ```lua
-require("githead"):setup({
+require("yatline-githead"):setup({
   order = {
     "branch",
     "remote",
-    "behind_ahead",
+    "tag",
+    "commit",
+    "behind_ahead_remote",
     "stashes",
     "state",
     "staged",
     "unstaged",
     "untracked",
-  }
+  },
+
+  show_numbers = true, -- shows staged, unstaged, untracked, stashes count
 
   show_branch = true,
-  branch_prefix = "on",
-  prefix_color = "white",
+  branch_prefix = "",
   branch_color = "blue",
-  branch_symbol = "",
-  branch_borders = "()",
+  branch_symbol = "",
+  branch_borders = "",
 
-  show_remote = true,
-  remote_color = "bright magenta",
-  remote_prefix = ":",
+  show_remote_branch = true, -- only shown if different from local branch
+  always_show_remote_branch = false, -- always show remote branch even if it the same as local branch
+  always_show_remote_repo = false, -- Adds `origin/` if `always_show_remote_branch` is enabled
+  remote_branch_prefix = ":",
+  remote_branch_color = "bright magenta",
 
+  show_tag = true, -- only shown if branch is not available
+  always_show_tag = false,
+  tag_color = "magenta",
+  tag_symbol = "#",
+
+  show_commit = true, -- only shown if branch AND tag are not available
+  always_show_commit = false,
   commit_color = "bright magenta",
   commit_symbol = "@",
 
-  show_behind_ahead = true,
-  behind_color = "bright magenta",
-  behind_symbol = "⇣",
-  ahead_color = "bright magenta",
-  ahead_symbol = "⇡",
+  show_behind_ahead_remote = true,
+  behind_remote_color = "bright magenta",
+  behind_remote_symbol = "⇣",
+  ahead_remote_color = "bright magenta",
+  ahead_remote_symbol = "⇡",
 
   show_stashes = true,
   stashes_color = "bright magenta",
@@ -92,14 +102,18 @@ require("githead"):setup({
 })
 ```
 
+### Theme
+
 You can also use a [theme](https://github.com/imsi32/yatline-themes):
 
 ```lua
 local your_theme = {
-  prefix_color = "white",
   branch_color = "blue",
-  remote_color = "bright magenta",
+  remote_branch_color = "bright magenta",
+  tag_color = "magenta",
   commit_color = "bright magenta",
+  behind_remote_color = "bright magenta",
+  ahead_remote_color = "bright magenta",
   stashes_color = "bright magenta",
   state_color = "red",
   staged_color = "bright yellow",
@@ -107,7 +121,7 @@ local your_theme = {
   untracked_color = "blue",
 }
 
-require("githead"):setup({
+require("yatline-githead"):setup({
 -- ===
     
   theme = your_theme,
@@ -115,6 +129,8 @@ require("githead"):setup({
 -- ===
 })
 ```
+
+### Adding as a Component
 
 If you are using yatline.yazi, you can use this component:
 
@@ -127,27 +143,34 @@ If you are using yatline.yazi, you can use this component:
 ```
 
 ``` text
-/cwd on ( feature):main ⇣2⇡3 $1 rebase 1/2 ~2 +4 !1 ?5
-|    |   |        ││     | |  |  |          |  |  |  |
-|    |   |        ││     | |  |  |          |  |  |  └─── untracked_symbol
-|    |   |        ││     | |  |  |          |  |  └────── unstaged_symbol
-|    |   |        ││     | |  |  |          |  └───────── staged_symbol
-|    |   |        ││     | |  |  |          └──────────── state_symbol
-|    |   |        ││     | |  |  └─────────────────────── state_prefix
-|    |   |        ││     | |  └────────────────────────── stashes_symbol
-|    |   |        ││     | └───────────────────────────── ahead_symbol
-|    |   |        ││     └─────────────────────────────── behind_symbol
-|    |   |        |└───────────────────────────────────── remote_prefix
-|    |   |        └────────────────────────────────────── branch_borders
-|    |   └─────────────────────────────────────────────── branch_symbol
-|    └─────────────────────────────────────────────────── branch_prefix
-└──────────────────────────────────────────────────────── cwd
+/cwd on ( feature):origin/main #v1.0.0 #1234567 ⇣2⇡3 $1 rebase 1/2 ~2 +4 !1 ?5
+|    |   |  |     ││ |     |    |       |        | |  |  |          |  |  |  |
+|    |   |  |     ││ |     |    |       |        | |  |  |          |  |  |  └─── untracked_symbol
+|    |   |  |     ││ |     |    |       |        | |  |  |          |  |  └────── unstaged_symbol
+|    |   |  |     ││ |     |    |       |        | |  |  |          |  └───────── staged_symbol
+|    |   |  |     ││ |     |    |       |        | |  |  |          └──────────── state_symbol
+|    |   |  |     ││ |     |    |       |        | |  |  └─────────────────────── state_prefix
+|    |   |  |     ││ |     |    |       |        | |  └────────────────────────── stashes_symbol
+|    |   |  |     ││ |     |    |       |        | └───────────────────────────── ahead_symbol
+|    |   |  |     ││ |     |    |       |        └─────────────────────────────── behind_symbol
+|    |   |  |     ││ |     |    |       └──────────────────────────────────────── commit_symbol
+|    |   |  |     ││ |     |    └──────────────────────────────────────────────── tag_symbol
+|    |   |  |     ││ |     └───────────────────────────────────────────────────── remote_branch
+|    |   |  |     ││ └─────────────────────────────────────────────────────────── remote_repo
+|    |   |  |     |└───────────────────────────────────────────────────────────── remote_branch_prefix
+|    |   |  |     └────────────────────────────────────────────────────────────── branch_borders
+|    |   |  └──────────────────────────────────────────────────────────────────── branch
+|    |   └─────────────────────────────────────────────────────────────────────── branch_symbol
+|    └─────────────────────────────────────────────────────────────────────────── branch_prefix
+└──────────────────────────────────────────────────────────────────────────────── cwd
 ```
 
 ## Features
 
-- [x] Current branch (or current commit if branch is not presented)
-- [x] Remote branch (only if it's different from local branch)
+- [x] Current branch
+- [x] Remote and remote branch
+- [x] Latest tag
+- [x] Latest commit
 - [x] Behind/Ahead of the remote
 - [x] Stashes
 - [x] States
@@ -155,7 +178,7 @@ If you are using yatline.yazi, you can use this component:
   - [x] cherry
   - [x] rebase (+ done counter)
   - [x] revert
-  - [x] bisect (only if other states are not present)
+  - [x] bisect
 - [x] Staged
 - [x] Unstaged
 - [x] Untracked
@@ -164,11 +187,23 @@ If you are using yatline.yazi, you can use this component:
 
 The goal is to use minimum amount of shell commands.
 
+- Branch, stashes, staged files, unstaged files, untracked files.
+
 ```shell
 git status --ignore-submodules=dirty --branch --show-stash --ahead-behind
 ```
 
-This command provides information about branches, stashes, staged files, unstaged files, untracked files, and other statistics.
+- Remote branch and repo:
+
+```shell
+git rev-parse --abbrev-ref --symbolic-full-name @{upstream}
+```
+
+- Latest tag and commit:
+
+```shell
+git log --format="commit %h%d" -n 1
+```
 
 ## Credits
 

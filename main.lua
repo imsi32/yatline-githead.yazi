@@ -1,7 +1,12 @@
 ---@diagnostic disable: undefined-global
 
 local save = ya.sync(function(this, cwd, output)
+	if cwd:match("%.git[/\\]") or cwd:match("%.git$") then
+		this.output = nil
+		return
+	end
 	if cx.active.current.cwd == Url(cwd) then
+		---@type GitStatusData
 		this.output = output
 		ui.render()
 	end
@@ -14,8 +19,10 @@ return {
 		local config = {
 			order = options.order or {
 				"branch",
-				"remote",
-				"behind_ahead",
+				"remote_branch",
+				"tag",
+				"commit",
+				"behind_ahead_remote",
 				"stashes",
 				"state",
 				"staged",
@@ -23,19 +30,32 @@ return {
 				"untracked",
 			},
 
+			show_numbers = options.show_numbers == nil and true or options.show_numbers,
+
 			show_branch = options.show_branch == nil and true or options.show_branch,
-			branch_prefix = options.branch_prefix or "on",
-			branch_symbol = options.branch_symbol or "",
-			branch_borders = options.branch_borders or "()",
+			branch_prefix = options.branch_prefix or "",
+			branch_symbol = options.branch_symbol or "",
+			branch_borders = options.branch_borders or "",
 
-			show_remote = options.show_remote == nil and true or options.show_remote,
-			remote_prefix = options.remote_prefix or ":",
+			show_remote_branch = options.show_remote_branch == nil and true or options.show_remote_branch,
+			always_show_remote_branch = options.always_show_remote_branch == nil and false
+				or options.always_show_remote_branch,
+			always_show_remote_repo = options.always_show_remote_repo == nil and false
+				or options.always_show_remote_repo,
+			remote_branch_prefix = options.remote_branch_prefix or ":",
 
-			commit_symbol = options.commit_symbol or "@",
+			show_tag = options.show_tag == nil and true or options.show_tag,
+			always_show_tag = options.always_show_tag == nil and false or options.always_show_tag,
+			tag_symbol = options.tag_symbol == nil and "#" or options.tag_symbol,
 
-			show_behind_ahead = options.behind_ahead == nil and true or options.behind_ahead,
-			behind_symbol = options.behind_symbol or "⇣",
-			ahead_symbol = options.ahead_symbol or "⇡",
+			show_commit = options.show_commit == nil and true or options.show_commit,
+			always_show_commit = options.always_show_commit == nil and false or options.always_show_commit,
+			commit_symbol = options.commit_symbol == nil and "@" or options.commit_symbol,
+
+			show_behind_ahead_remote = options.show_behind_ahead_remote == nil and true
+				or options.show_behind_ahead_remote,
+			behind_remote_symbol = options.behind_remote_symbol or "⇣",
+			ahead_remote_symbol = options.ahead_remote_symbol or "⇡",
 
 			show_stashes = options.show_stashes == nil and true or options.show_stashes,
 			stashes_symbol = options.stashes_symbol or "$",
@@ -59,12 +79,12 @@ return {
 		end
 
 		local theme = {
-			prefix_color = options.prefix_color or "white",
 			branch_color = options.branch_color or "blue",
-			remote_color = options.remote_color or "bright magenta",
+			remote_branch_color = options.remote_branch_color or "bright magenta",
+			tag_color = options.tag_color or "magenta",
 			commit_color = options.commit_color or "bright magenta",
-			behind_color = options.behind_color or "bright magenta",
-			ahead_color = options.ahead_color or "bright magenta",
+			behind_remote_color = options.behind_remote_color or "bright magenta",
+			ahead_remote_color = options.ahead_remote_color or "bright magenta",
 			stashes_color = options.stashes_color or "bright magenta",
 			state_color = options.state_color or "red",
 			staged_color = options.staged_color or "bright yellow",
@@ -72,203 +92,289 @@ return {
 			untracked_color = options.untracked_color or "bright blue",
 		}
 
-		local function get_branch(status)
-			local branch = status:match("On branch (%S+)")
+		local function render_branch()
+			local branch = this.output.branch
 
-			if branch == nil then
-				local commit = status:match("onto (%S+)") or status:match("detached at (%S+)")
+			if not branch then
+				return nil
+			end
 
-				if commit == nil then
-					return ""
-				else
-					local branch_prefix = config.branch_prefix == "" and " " or " " .. config.branch_prefix .. " "
-					local commit_prefix = config.commit_symbol == "" and "" or config.commit_symbol
+			local left_border = config.branch_borders:sub(1, 1)
+			local right_border = config.branch_borders:sub(2, 2)
 
-					return { "commit", branch_prefix .. commit_prefix, commit }
-				end
+			local branch_string = ""
+
+			if config.branch_symbol == "" then
+				branch_string = left_border .. branch .. right_border
 			else
-				local left_border = config.branch_borders:sub(1, 1)
-				local right_border = config.branch_borders:sub(2, 2)
+				branch_string = left_border .. config.branch_symbol .. branch .. right_border
+			end
 
-				local branch_string = ""
+			local branch_prefix = config.branch_prefix == "" and "" or config.branch_prefix .. " "
 
-				if config.branch_symbol == "" then
-					branch_string = left_border .. branch .. right_border
-				else
-					branch_string = left_border .. config.branch_symbol .. " " .. branch .. right_border
-				end
+			return {
+				{ branch_prefix, nil },
+				{ branch_string, theme.branch_color },
+			}
+		end
 
-				local branch_prefix = config.branch_prefix == "" and " " or " " .. config.branch_prefix .. " "
+		local function render_remote_branch()
+			local branch = this.output.branch
+			local remote_branch = this.output.remote_branch
+			local remote_repo = this.output.remote_repo
 
-				return { "branch", branch_prefix, branch_string }
+			if not remote_branch then
+				return nil
+			end
+
+			local show_remote = config.always_show_remote_branch or branch ~= remote_branch
+			if not show_remote then
+				return nil
+			end
+
+			local remote_branch_label = config.always_show_remote_repo and (remote_repo .. "/" .. remote_branch)
+				or remote_branch
+
+			return {
+				{ config.remote_branch_prefix, nil },
+				{ remote_branch_label, theme.remote_branch_color },
+			}
+		end
+
+		local function render_tag()
+			local branch = this.output.branch
+			local tag = this.output.tag
+
+			if not tag then
+				return nil
+			end
+
+			if not branch or config.always_show_tag then
+				return {
+					{ config.tag_symbol, nil },
+					{ tag, theme.tag_color },
+				}
 			end
 		end
 
-		local function get_remote(status)
-			local branch = status:match("On branch (%S+)")
-			local remote_branch = status:match("'[^/]+/([^']+)'")
+		local function render_commit()
+			local branch = this.output.branch
+			local tag = this.output.tag
+			local commit = this.output.commit
 
-			if (branch and remote_branch) and (branch ~= remote_branch) then
-				return config.remote_prefix .. remote_branch
-			else
-				return ""
+			if not commit then
+				return nil
+			end
+
+			if (not branch and not tag) or config.always_show_commit then
+				return {
+					{ config.commit_symbol, nil },
+					{ commit, theme.commit_color },
+				}
 			end
 		end
 
-		get_remote("")
+		local function render_behind_ahead_remote()
+			local behind = this.output.behind_remote
+			local ahead = this.output.ahead_remote
 
-		local function get_behind_ahead(status)
-			local diverged_ahead, diverged_behind = status:match("have (%d+) and (%d+) different")
-			if diverged_ahead and diverged_behind then
-				return { " " .. config.behind_symbol .. diverged_behind, config.ahead_symbol .. diverged_ahead }
+			local behind_label = behind
+				and behind > 0
+				and {
+					config.behind_remote_symbol .. (config.show_numbers and behind or ""),
+					theme.behind_remote_color,
+				}
+
+			local ahead_label = ahead
+				and ahead > 0
+				and {
+					config.ahead_remote_symbol .. (config.show_numbers and ahead or ""),
+					theme.ahead_remote_color,
+				}
+
+			if ahead_label and behind_label then
+				return {
+					behind_label,
+					ahead_label,
+				}
+			elseif ahead_label then
+				return ahead_label
+			elseif behind_label then
+				return behind_label
 			else
-				local behind = status:match("behind %S+ by (%d+) commit")
-				local ahead = status:match("ahead of %S+ by (%d+) commit")
-				if ahead then
-					return { "", " " .. config.ahead_symbol .. ahead }
-				elseif behind then
-					return { " " .. config.behind_symbol .. behind, "" }
-				else
-					return ""
-				end
+				return nil
 			end
 		end
 
-		local function get_stashes(status)
-			local stashes = tonumber(status:match("Your stash currently has (%S+)"))
+		local function render_stashes()
+			local stashes_count = this.output.stashes
 
-			return stashes ~= nil and " " .. config.stashes_symbol .. stashes or ""
+			if not stashes_count then
+				return nil
+			end
+
+			local stashes_label = config.stashes_symbol
+
+			if config.show_numbers then
+				stashes_label = stashes_label .. stashes_count
+			end
+
+			return { stashes_label, theme.stashes_color }
 		end
 
-		local function get_state(status)
-			local unmerged = status:match("Unmerged paths:%s*(.-)%s*\n\n")
-			if unmerged then
-				local filtered_unmerged = unmerged:gsub("^[%s]*%b()[%s]*", ""):gsub("^[%s]*%b()[%s]*", "")
+		local function render_state()
+			local state_prefix = this.output.state_prefix
+			local unmerged_count = this.output.unmerged_count
+			local rebase_done = this.output.rebase_done
+			local rebase_total = this.output.rebase_total
 
-				local unmerged_count = 0
-				for line in filtered_unmerged:gmatch("[^\r\n]+") do
-					if line:match("%S") then
-						unmerged_count = unmerged_count + 1
-					end
-				end
-
-				local state_name = ""
-
+			if state_prefix then
+				local state_label = ""
 				if config.show_state_prefix then
-					if status:find("git merge") then
-						state_name = "merge "
-					elseif status:find("git cherry%-pick") then
-						state_name = "cherry "
-					elseif status:find("git rebase") then
-						state_name = "rebase "
+					state_label = state_prefix
+					if state_prefix == "rebase-i" and config.show_numbers and rebase_done and rebase_total then
+						state_label = state_label .. " " .. rebase_done .. "/" .. rebase_total
+					end
+				end
 
-						if status:find("done") then
-							local done = status:match("%((%d+) com.- done%)") or ""
-							state_name = state_name .. done .. "/" .. unmerged_count .. " "
+				local unmerged_label = ""
+				local symbol = ""
+
+				if unmerged_count and unmerged_count > 0 then
+					symbol = " " .. config.state_symbol
+					if config.show_numbers then
+						unmerged_label = tostring(unmerged_count)
+					end
+				end
+
+				return { state_label .. symbol .. unmerged_label, theme.state_color }
+			end
+			return nil
+		end
+
+		local function render_staged()
+			local staged = this.output.staged
+
+			if staged then
+				local staged_label = config.staged_symbol
+
+				if config.show_numbers then
+					local filtered_staged = staged:gsub("^[%s]*%b()[%s]*", "")
+
+					local staged_count = 0
+					for line in filtered_staged:gmatch("[^\r\n]+") do
+						if line:match("%S") then
+							staged_count = staged_count + 1
 						end
-					elseif status:find("git revert") then
-						state_name = "revert "
 					end
+
+					staged_label = staged_label .. staged_count
 				end
 
-				return " " .. state_name .. config.state_symbol .. unmerged_count
-			elseif status:find("git bisect") then
-				return " bisect"
-			else
-				return ""
+				return { staged_label, theme.staged_color }
 			end
+
+			return nil
 		end
 
-		local function get_staged(status)
-			local result = status:match("Changes to be committed:%s*(.-)%s*\n\n")
-			if result then
-				local filtered_result = result:gsub("^[%s]*%b()[%s]*", "")
+		local function render_unstaged()
+			local unstaged = this.output.unstaged
 
-				local staged = 0
-				for line in filtered_result:gmatch("[^\r\n]+") do
-					if line:match("%S") then
-						staged = staged + 1
+			if unstaged then
+				local unstaged_label = config.unstaged_symbol
+
+				if config.show_numbers then
+					local filtered_unstaged = unstaged:gsub("^[%s]*%b()[\r\n]*", ""):gsub("^[%s]*%b()[\r\n]*", "")
+
+					local unstaged_count = 0
+					for line in filtered_unstaged:gmatch("[^\r\n]+") do
+						if line:match("%S") then
+							unstaged_count = unstaged_count + 1
+						end
 					end
+
+					unstaged_label = unstaged_label .. unstaged_count
 				end
 
-				return " " .. config.staged_symbol .. staged
-			else
-				return ""
+				return { unstaged_label, theme.unstaged_color }
 			end
+
+			return nil
 		end
 
-		local function get_unstaged(status)
-			local result = status:match("Changes not staged for commit:%s*(.-)%s*\n\n")
-			if result then
-				local filtered_result = result:gsub("^[%s]*%b()[\r\n]*", ""):gsub("^[%s]*%b()[\r\n]*", "")
+		local function render_untracked()
+			local untracked = this.output.untracked
 
-				local unstaged = 0
-				for line in filtered_result:gmatch("[^\r\n]+") do
-					if line:match("%S") then
-						unstaged = unstaged + 1
+			if untracked then
+				local untracked_label = config.untracked_symbol
+
+				if config.show_numbers then
+					local filtered_untracked = untracked:gsub("^[%s]*%b()[\r\n]*", "")
+					local untracked_count = 0
+
+					for line in filtered_untracked:gmatch("[^\r\n]+") do
+						if line:match("%S") then
+							untracked_count = untracked_count + 1
+						end
 					end
+
+					untracked_label = untracked_label .. untracked_count
 				end
 
-				return " " .. config.unstaged_symbol .. unstaged
-			else
-				return ""
+				return { untracked_label, theme.untracked_color }
 			end
+
+			return nil
 		end
 
-		local function get_untracked(status)
-			local result = status:match("Untracked files:%s*(.-)%s*\n\n")
-			if result then
-				local filtered_result = result:gsub("^[%s]*%b()[\r\n]*", "")
-
-				local untracked = 0
-				for line in filtered_result:gmatch("[^\r\n]+") do
-					if line:match("%S") then
-						untracked = untracked + 1
-					end
-				end
-
-				return " " .. config.untracked_symbol .. untracked
-			else
-				return ""
+		function Yatline.coloreds.get:githead()
+			if not this.output then
+				return nil
 			end
-		end
 
-		function Header:githead()
-			local status = this.output
-
-			local branch_array = get_branch(status)
-			local behind_ahead_array = get_behind_ahead(status)
-
-			local values = {
-				prefix = ui.Span(config.show_branch and branch_array[2] or ""):fg(theme.prefix_color),
-				branch = ui.Span(config.show_branch and branch_array[3] or "")
-					:fg(branch_array[1] == "commit" and theme.commit_color or theme.branch_color),
-				remote = ui.Span(config.show_remote and get_remote(status) or ""):fg(theme.remote_color),
-				behind_ahead = ui.Line(
-					ui.Span(config.show_behind_ahead and behind_ahead_array[1] or ""):fg(theme.behind_color),
-					ui.Span(config.show_behind_ahead and behind_ahead_array[2] or ""):fg(theme.ahead_color)
-				),
-				stashes = ui.Span(config.show_stashes and get_stashes(status) or ""):fg(theme.stashes_color),
-				state = ui.Span(config.show_state and get_state(status) or ""):fg(theme.state_color),
-				staged = ui.Span(config.show_staged and get_staged(status) or ""):fg(theme.staged_color),
-				unstaged = ui.Span(config.show_unstaged and get_unstaged(status) or ""):fg(theme.unstaged_color),
-				untracked = ui.Span(config.show_untracked and get_untracked(status) or ""):fg(theme.untracked_color),
+			local fn_table = {
+				branch = render_branch,
+				remote_branch = render_remote_branch,
+				tag = render_tag,
+				commit = render_commit,
+				behind_ahead_remote = render_behind_ahead_remote,
+				stashes = render_stashes,
+				state = render_state,
+				staged = render_staged,
+				unstaged = render_unstaged,
+				untracked = render_untracked,
 			}
 
-			local githead = {}
+			local head = {}
+
 			for _, key in ipairs(config.order) do
+				local fn = fn_table[key]
 				local is_shown = config["show_" .. key]
-				if values[key] and is_shown then
-					table.insert(githead, values[key])
+
+				if fn and is_shown then
+					local value = fn()
+					if value then
+						if #head ~= 0 and head[#head][1] ~= " " and head[#head][2] ~= "black" then
+							table.insert(head, { " ", "black" })
+						end
+						if type(value[1]) == "table" then
+							table.move(value, 1, #value, #head + 1, head)
+						else
+							table.insert(head, value)
+						end
+					end
 				end
 			end
 
-			return ui.Line(githead)
+			if #head ~= 0 then
+				return head
+			else
+				return nil
+			end
 		end
 
 		local callback = function()
 			local cwd = cx.active.current.cwd
-
 			ya.emit("plugin", {
 				this._id,
 				ya.quote(tostring(cwd), true),
@@ -282,89 +388,182 @@ return {
 		ps.sub("trash", callback)
 		ps.sub("delete", callback)
 		ps.sub("tab", callback)
-
-		if Yatline ~= nil then
-			function Yatline.coloreds.get:githead()
-				local status = this.output
-
-				if not status then
-					return ""
-				end
-
-				local branch_array = config.show_branch and get_branch(status) or ""
-				local remote_str = config.show_remote and get_remote(status) or ""
-				local behind_ahead_array = config.show_behind_ahead and get_behind_ahead(status) or ""
-				local stashes_str = config.show_stashes and get_stashes(status) or ""
-				local state_str = config.show_state and get_state(status) or ""
-				local staged_str = config.show_staged and get_staged(status) or ""
-				local unstaged_str = config.show_unstaged and get_unstaged(status) or ""
-				local untracked_str = config.show_untracked and get_untracked(status) or ""
-
-				local values = {
-					prefix = branch_array ~= "" and { branch_array[2], theme.prefix_color } or nil,
-					branch = branch_array ~= "" and {
-						branch_array[3],
-						branch_array[1] == "commit" and theme.commit_color or theme.branch_color,
-					} or nil,
-					remote = remote_str ~= "" and { remote_str, theme.remote_color } or nil,
-					behind_ahead = (function()
-						if behind_ahead_array ~= "" then
-							local ba_array = {}
-							if behind_ahead_array[1] ~= "" then
-								table.insert(ba_array, { behind_ahead_array[1], theme.behind_color })
-							end
-							if behind_ahead_array[2] ~= "" then
-								table.insert(ba_array, { behind_ahead_array[2], theme.ahead_color })
-							end
-							if #ba_array ~= 0 then
-								return ba_array
-							end
-						end
-						return nil
-					end)(),
-					stashes = stashes_str ~= "" and { stashes_str, theme.stashes_color } or nil,
-					state = state_str ~= "" and { state_str, theme.state_color } or nil,
-					staged = staged_str ~= "" and { staged_str, theme.staged_color } or nil,
-					unstaged = unstaged_str ~= "" and { unstaged_str, theme.unstaged_color } or nil,
-					untracked = untracked_str ~= "" and { untracked_str, theme.untracked_color } or nil,
-				}
-
-				local githead = {}
-				for _, key in ipairs(config.order) do
-					local is_shown = config["show_" .. key]
-					if values[key] ~= nil and is_shown then
-						if type(values[key][1]) == "table" then
-							for _, value in ipairs(values[key]) do
-								table.insert(githead, value)
-							end
-						else
-							table.insert(githead, values[key])
-						end
-					end
-				end
-
-				if #githead == 0 then
-					return ""
-				else
-					return githead
-				end
-			end
-		else
-			Header:children_add(Header.githead, 2000, Header.LEFT)
-		end
 	end,
 
 	entry = function(_, job)
 		local args = job.args or job
-		local command = Command("git")
-			:arg({ "status", "--ignore-submodules=dirty", "--branch", "--show-stash", "--ahead-behind" })
-			:cwd(args[1])
-			:env("LANGUAGE", "en_US.UTF-8")
-			:stdout(Command.PIPED)
-		local output = command:output()
 
-		if output then
-			save(args[1], output.stdout)
+		---@class GitStatusData
+		---@field ahead_remote? integer
+		---@field behind_remote? integer
+		---@field branch? string
+		---@field commit? string
+		---@field rebase_done? integer
+		---@field remote_branch? string
+		---@field remote_repo? string
+		---@field staged? string
+		---@field stashes? integer
+		---@field state_prefix? "bisect"|"cherry"|"merge"|"rebase-i"|"revert"
+		---@field tag? string
+		---@field unmerged_count? integer
+		---@field unstaged? string
+		---@field untracked? string
+		local data = {}
+
+		--- @param status string
+		local get_behind_ahead_remote = function(status)
+			local diverged_ahead, diverged_behind = status:match("have (%d+) and (%d+) different")
+			if diverged_ahead and diverged_behind then
+				data.behind_remote = tonumber(diverged_behind)
+				data.ahead_remote = tonumber(diverged_ahead)
+			else
+				local behind_remote = status:match("behind %S+ by (%d+) commits?")
+				local ahead_remote = status:match("ahead of %S+ by (%d+) commits?")
+
+				data.behind_remote = tonumber(behind_remote)
+				data.ahead_remote = tonumber(ahead_remote)
+			end
 		end
+
+		--- @param status string
+		local get_branch = function(status)
+			data.branch = status:match("On branch (%S+)")
+		end
+
+		--- @param status string
+		local get_stashes = function(status)
+			data.stashes = tonumber(status:match("Your stash currently has (%d+)"))
+		end
+
+		--- @param status string
+		local get_state = function(status)
+			local unmerged = status:match("Unmerged paths:%s*(.-)%s*\n\n")
+			if unmerged then
+				local filtered_unmerged = unmerged:gsub("^[%s]*%b()[%s]*", ""):gsub("^[%s]*%b()[%s]*", "")
+				local count = 0
+				for line in filtered_unmerged:gmatch("[^\r\n]+") do
+					if line:match("%S") then
+						count = count + 1
+					end
+				end
+				data.unmerged_count = count
+			end
+
+			if status:find("git merge") then
+				data.state_prefix = "merge"
+			elseif status:find("git cherry%-pick") then
+				data.state_prefix = "cherry"
+			elseif status:find("git rebase") then
+				data.state_prefix = "rebase-i"
+				local commands_done = status:match("%((%d+) commands? done%)")
+				if commands_done then
+					data.rebase_done = commands_done
+					if not data.unmerged_count then
+						data.rebase_total = commands_done
+					else
+						data.rebase_total = data.unmerged_count
+					end
+				end
+			elseif status:find("git revert") then
+				data.state_prefix = "revert"
+			elseif status:find("git bisect") then
+				data.state_prefix = "bisect"
+			end
+		end
+
+		--- @param status string
+		local get_staged = function(status)
+			data.staged = status:match("Changes to be committed:%s*(.-)%s*\n\n")
+		end
+
+		--- @param status string
+		local get_unstaged = function(status)
+			data.unstaged = status:match("Changes not staged for commit:%s*(.-)%s*\n\n")
+		end
+
+		--- @param status string
+		local get_untracked = function(status)
+			data.untracked = status:match("Untracked files:%s*(.-)%s*\n\n")
+		end
+
+		local get_status = function()
+			local cmd = Command("git")
+				:arg({
+					"status",
+					"--ignore-submodules=dirty",
+					"--branch",
+					"--show-stash",
+					"--ahead-behind",
+				})
+				:cwd(args[1])
+				:env("LANGUAGE", "en_US.UTF-8")
+				:stdout(Command.PIPED)
+			local cmd_output = cmd:output()
+
+			if cmd_output then
+				local status = cmd_output.stdout
+
+				get_branch(status)
+				get_behind_ahead_remote(status)
+				get_stashes(status)
+				get_state(status)
+				get_staged(status)
+				get_unstaged(status)
+				get_untracked(status)
+			end
+		end
+
+		local get_remote_branch = function()
+			local cmd = Command("git")
+				:arg({
+					"rev-parse",
+					"--abbrev-ref",
+					"--symbolic-full-name",
+					"@{upstream}",
+				})
+				:cwd(args[1])
+				:env("LANGUAGE", "en_US.UTF-8")
+				:stdout(Command.PIPED)
+			local cmd_output = cmd:output()
+
+			if cmd_output then
+				local remote_branch = cmd_output.stdout
+
+				data.remote_branch = remote_branch:gsub("[\r\n]", ""):match("^[^/]+/(.+)")
+				data.remote_repo = remote_branch:gsub("[\r\n]", ""):match("^([^/]+)/")
+			end
+		end
+
+		--- @param log string
+		local get_tag = function(log)
+			data.tag = log:match("tag: ([^, )]+)")
+		end
+
+		--- @param log string
+		local get_commit = function(log)
+			data.commit = log:match("^commit%s+([a-f0-9]+)")
+		end
+
+		local get_git_log = function()
+			local cmd = Command("git")
+				:arg({ "log", "--format=commit %h%d", "-n", "1" })
+				:cwd(args[1])
+				:env("LANGUAGE", "en_US.UTF-8")
+				:stdout(Command.PIPED)
+			local cmd_output = cmd:output()
+
+			if cmd_output then
+				local log = cmd_output.stdout
+
+				get_tag(log)
+				get_commit(log)
+			end
+		end
+
+		get_status()
+		get_remote_branch()
+		get_git_log()
+
+		save(args[1], data)
 	end,
 }
